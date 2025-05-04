@@ -9,12 +9,13 @@ use anchor_spl::{
 use crate::state::Config;
 
 #[derive(Accounts)]
-#[instruction[seed: u64]]
+#[instruction(seed: u64)]
 pub struct Initialize<'info> {
     #[account(mut)]
     pub admin: Signer<'info>,
 
     pub mint_x: Account<'info, Mint>,
+
     pub mint_y: Account<'info, Mint>,
 
     #[account(
@@ -22,17 +23,17 @@ pub struct Initialize<'info> {
         payer = admin,
         seeds = [b"config", seed.to_le_bytes().as_ref()],
         bump,
-        space = Config::INIT_SPACE,
+        space = Config::INIT_SPACE
     )]
     pub config: Account<'info, Config>,
 
     #[account(
-        init, 
+        init,
         payer = admin,
-        seeds = [b"lp", seed.to_le_bytes().as_ref()],
-        bump,
         mint::decimals = 6,
-        mint::authority = config,
+        mint::authority = config.key(),
+        seeds = [b"lp", config.key().as_ref()],
+        bump,
     )]
     pub mint_lp: Account<'info, Mint>,
 
@@ -41,7 +42,7 @@ pub struct Initialize<'info> {
         payer = admin,
         associated_token::mint = mint_x,
         associated_token::authority = config,
-        associated_token::token_program = token_program
+        associated_token::token_program = token_program,
     )]
     pub vault_x: Account<'info, TokenAccount>,
 
@@ -50,7 +51,7 @@ pub struct Initialize<'info> {
         payer = admin,
         associated_token::mint = mint_y,
         associated_token::authority = config,
-        associated_token::token_program = token_program
+        associated_token::token_program = token_program,
     )]
     pub vault_y: Account<'info, TokenAccount>,
 
@@ -60,20 +61,23 @@ pub struct Initialize<'info> {
 }
 
 impl<'info> Initialize<'info> {
-    pub fn initialize(&mut self, seed: u64, fee: u16, authority: Option<Pubkey>, bump: InitializeBumps) -> Result<()>{
-        self.config.set_inner( Config { 
-            seed,
+    pub fn initialize(
+        &mut self, 
+        seed: u64, 
+        fee: u16, 
+        authority: Option<Pubkey>, 
+        bumps: &InitializeBumps
+    ) -> Result<()> {
+        self.config.set_inner(Config { 
+            seed, 
             authority, 
             mint_x: self.mint_x.key(), 
             mint_y: self.mint_y.key(), 
-            fee, 
-            locked: false, 
-            config_bump: bump.config, 
-            lp_bump: bump.mint_lp, 
-        }
-        );
-        
+            fee, locked: false, 
+            config_bump: bumps.config, 
+            lp_bump: bumps.mint_lp 
+        });
+
         Ok(())
     }
 }
-
