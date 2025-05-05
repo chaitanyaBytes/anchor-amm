@@ -3,12 +3,12 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token::{burn, transfer_checked, Burn, Mint, Token, TokenAccount, TransferChecked},
+    token::{transfer_checked, Mint, Token, TokenAccount, TransferChecked},
 };
 use constant_product_curve::{ConstantProduct, LiquidityPair};
 
+use crate::error::AmmError;
 use crate::state::Config;
-use crate::{error::AmmError, swap};
 
 #[derive(Accounts)]
 pub struct Swap<'info> {
@@ -93,17 +93,17 @@ impl<'info> Swap<'info> {
             false => LiquidityPair::Y,
         };
 
-        let res = curve
+        let swap_result = curve
             .swap(p, amount_in, min_amount_out)
             .map_err(AmmError::from)?;
 
-        require!(res.deposit != 0, AmmError::InvalidAmount);
-        require!(res.withdraw != 0, AmmError::InvalidAmount);
+        require!(swap_result.deposit != 0, AmmError::InvalidAmount);
+        require!(swap_result.withdraw != 0, AmmError::InvalidAmount);
 
         // deposit tokens
-        self.deposit_token(is_x, res.deposit)?;
+        self.deposit_token(is_x, swap_result.deposit)?;
         // withdraw tokens
-        self.withdraw_token(is_x, res.withdraw)?;
+        self.withdraw_token(!is_x, swap_result.withdraw)?;
 
         Ok(())
     }
